@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="針交換ログ">
+  <meta name="theme-color" content="#111827">
+  <title>針交換ログ</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f2f0ed; }
+    select, input, button { font-family: inherit; }
+
+    #app { min-height: 100vh; min-height: -webkit-fill-available; }
+
+    .header { background: #111827; color: #f3f0e8; padding: env(safe-area-inset-top, 16px) 16px 12px; padding-top: max(env(safe-area-inset-top), 16px); }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; }
+    .header-eyebrow { font-size: 11px; letter-spacing: 0.12em; color: #9ca3af; margin-bottom: 2px; }
+    .header-title { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: 0.04em; }
+    .header-title span { font-weight: 400; font-size: 13px; color: #9ca3af; }
+    .alert-badge { background: #e53935; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+
+    .tabs { display: flex; background: #fff; border-bottom: 1px solid #e5e0d8; }
+    .tab { flex: 1; padding: 11px 0; border: none; background: none; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { font-weight: 700; color: #111827; border-bottom-color: #111827; }
+    .tab:not(.active) { color: #888; }
+
+    .content { padding: 14px 12px; padding-bottom: max(80px, calc(80px + env(safe-area-inset-bottom))); }
+
+    .head-scroll { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .head-scroll::-webkit-scrollbar { display: none; }
+    .head-btn { min-width: 44px; height: 44px; border-radius: 10px; border: 2px solid transparent; background: #fff; color: #111827; font-size: 14px; font-weight: 700; cursor: pointer; position: relative; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .head-btn.active { background: #111827; color: #f3f0e8; border-color: #111827; }
+    .head-dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: #e53935; border: 1px solid #fff; }
+
+    .section-label { font-size: 12px; color: #888; margin-bottom: 10px; font-weight: 600; }
+
+    .needle-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .needle-card { background: #fff; border-radius: 12px; padding: 12px 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); cursor: pointer; }
+    .needle-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .needle-num { font-size: 11px; color: #888; font-weight: 600; }
+    .needle-badge { font-size: 10px; border-radius: 10px; padding: 2px 6px; font-weight: 700; }
+    .needle-type { font-size: 11px; color: #555; margin-bottom: 2px; }
+    .needle-date { font-size: 10px; color: #aaa; }
+    .needle-tap { margin-top: 8px; text-align: right; font-size: 10px; color: #bbb; }
+
+    .history-btn { width: 100%; padding: 11px 0; border-radius: 10px; border: 1px solid #e0d8ce; background: #fff; font-size: 13px; color: #555; cursor: pointer; margin-top: 16px; }
+
+    .alert-list { }
+    .alert-item { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .alert-item-left .name { font-weight: 700; font-size: 14px; color: #111827; }
+    .alert-item-left .type { font-size: 12px; color: #888; margin-top: 2px; }
+    .alert-item-right .days { font-size: 13px; font-weight: 700; }
+    .alert-item-right .tap { font-size: 10px; color: #bbb; margin-top: 2px; }
+
+    .empty { text-align: center; color: #aaa; margin-top: 48px; font-size: 14px; }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* Modal overlay */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; justify-content: center; z-index: 200; }
+    .modal { background: #fff; border-radius: 20px 20px 0 0; padding: 24px 20px; padding-bottom: max(36px, calc(24px + env(safe-area-inset-bottom))); width: 100%; max-width: 480px; }
+    .modal-eyebrow { font-size: 11px; color: #888; margin-bottom: 4px; letter-spacing: 0.08em; }
+    .modal-title { margin: 0 0 18px; font-size: 17px; font-weight: 800; color: #111827; }
+    .modal-label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; margin-top: 14px; font-weight: 600; }
+    .modal-input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #e0d8ce; font-size: 14px; background: #faf7f4; color: #111827; }
+    .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-cancel { flex: 1; padding: 13px 0; border-radius: 10px; border: 1px solid #ddd; background: #fff; font-size: 14px; cursor: pointer; color: #555; }
+    .btn-save { flex: 2; padding: 13px 0; border-radius: 10px; border: none; background: #111827; color: #f3f0e8; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    .history-modal { max-height: 75vh; overflow-y: auto; }
+    .history-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .history-modal-title { margin: 0; font-size: 16px; font-weight: 800; color: #111827; }
+    .history-close { background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer; }
+    .history-needle-label { font-size: 12px; font-weight: 700; color: #555; margin-bottom: 6px; }
+    .history-row { font-size: 12px; padding: 7px 10px; background: #faf7f4; border-radius: 8px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .history-row span:first-child { color: #555; }
+    .history-row span:last-child { color: #888; }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const NUM_HEADS = 10;
+const NUM_NEEDLES = 9;
+const STORAGE_KEY = "needle_10head_v1";
+
+const NEEDLE_TYPES = [
+  "DBK5Z1 #11",
+  "DB×K5 #9",
+  "DB×K5 #11",
+  "DB×K5 #14",
+  "DB×K5 #16",
+  "刺繍用 #75/11",
+  "刺繍用 #90/14",
+  "その他",
+];
+
+const REASONS = ["定期交換", "針折れ", "針曲がり", "針先のキズ", "縫い目不良", "その他"];
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(iso) {
+  if (!iso) return "－";
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function daysSince(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function statusColor(days) {
+  if (days === null) return "#c8c8c8";
+  if (days >= 60) return "#e53935";
+  if (days >= 30) return "#fb8c00";
+  return "#43a047";
+}
+
+function statusLabel(days) {
+  if (days === null) return "未記録";
+  return `${days}日`;
+}
+
+// State
+let state = {
+  data: null,
+  selectedHead: 1,
+  view: "grid",
+  modal: null,       // { head, needle }
+  historyModal: null,
+  form: { date: todayStr(), needleType: NEEDLE_TYPES[0], reason: REASONS[0], note: "" },
+};
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  const data = {};
+  for (let h = 1; h <= NUM_HEADS; h++) {
+    data[h] = {};
+    for (let n = 1; n <= NUM_NEEDLES; n++) {
+      data[h][n] = { lastDate: null, needleType: NEEDLE_TYPES[0], history: [] };
+    }
+  }
+  return data;
+}
+
+function saveData() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data)); } catch {}
+}
+
+state.data = loadData();
+
+function getAlerts() {
+  const alerts = [];
+  for (let h = 1; h <= NUM_HEADS; h++) {
+    for (let n = 1; n <= NUM_NEEDLES; n++) {
+      const days = daysSince(state.data[h][n].lastDate);
+      if (days === null || days >= 30) alerts.push({ head: h, needle: n, days });
+    }
+  }
+  return alerts;
+}
+
+function render() {
+  const alerts = getAlerts();
+  const { selectedHead, view, modal, historyModal, form } = state;
+  const headNeedles = state.data[selectedHead];
+
+  let html = `<div id="app-inner">`;
+
+  // Header
+  html += `<div class="header">
+    <div class="header-inner">
+      <div>
+        <div class="header-eyebrow">EMBROIDERY MACHINE</div>
+        <h1 class="header-title">針交換ログ <span>10頭 × 9針</span></h1>
+      </div>
+      ${alerts.length > 0 ? `<div class="alert-badge">⚠ ${alerts.length}本</div>` : ""}
+    </div>
+  </div>`;
+
+  // Tabs
+  html += `<div class="tabs">
+    <button class="tab ${view === "grid" ? "active" : ""}" onclick="setView('grid')">📋 ヘッド別</button>
+    <button class="tab ${view === "alert" ? "active" : ""}" onclick="setView('alert')">⚠ 要確認 (${alerts.length})</button>
+  </div>`;
+
+  if (view === "grid") {
+    html += `<div class="content">`;
+
+    // Head selector
+    html += `<div class="head-scroll">`;
+    for (let h = 1; h <= NUM_HEADS; h++) {
+      const hasAlert = Object.values(state.data[h]).some(n => {
+        const d = daysSince(n.lastDate);
+        return d === null || d >= 30;
+      });
+      html += `<button class="head-btn ${selectedHead === h ? "active" : ""}" onclick="selectHead(${h})">
+        ${h}${hasAlert ? `<span class="head-dot"></span>` : ""}
+      </button>`;
+    }
+    html += `</div>`;
+
+    html += `<div class="section-label">${selectedHead}頭目　針番号 1〜9</div>`;
+
+    // Needle grid
+    html += `<div class="needle-grid">`;
+    for (let n = 1; n <= NUM_NEEDLES; n++) {
+      const needle = headNeedles[n];
+      const days = daysSince(needle.lastDate);
+      const color = statusColor(days);
+      html += `<div class="needle-card" style="border-top: 3px solid ${color}" onclick="openModal(${selectedHead}, ${n})">
+        <div class="needle-card-top">
+          <span class="needle-num">針 ${n}</span>
+          <span class="needle-badge" style="background:${color}22; color:${color}">${statusLabel(days)}</span>
+        </div>
+        <div class="needle-type">${needle.needleType || "－"}</div>
+        <div class="needle-date">${needle.lastDate ? formatDate(needle.lastDate) : "未記録"}</div>
+        <div class="needle-tap">タップして記録 →</div>
+      </div>`;
+    }
+    html += `</div>`;
+
+    html += `<button class="history-btn" onclick="openHistory(${selectedHead})">📋 ${selectedHead}頭目の交換履歴を見る</button>`;
+    html += `</div>`;
+  }
+
+  if (view === "alert") {
+    html += `<div class="content">`;
+    if (alerts.length === 0) {
+      html += `<div class="empty"><div class="empty-icon">✅</div>すべての針が正常です</div>`;
+    } else {
+      html += `<div class="alert-list">`;
+      alerts.forEach(({ head, needle, days }) => {
+        const color = statusColor(days);
+        const needleData = state.data[head][needle];
+        html += `<div class="alert-item" style="border-left: 4px solid ${color}" onclick="goToNeedle(${head}, ${needle})">
+          <div class="alert-item-left">
+            <div class="name">${head}頭目 · 針${needle}</div>
+            <div class="type">${needleData.needleType || "種類未設定"}</div>
+          </div>
+          <div class="alert-item-right">
+            <div class="days" style="color:${color}">${days === null ? "未記録" : `${days}日経過`}</div>
+            <div class="tap">タップして記録</div>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Record modal
+  if (modal) {
+    html += `<div class="overlay" onclick="closeModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-eyebrow">交換を記録</div>
+        <h2 class="modal-title">${modal.head}頭目 · 針${modal.needle}</h2>
+
+        <label class="modal-label">交換日</label>
+        <input class="modal-input" type="date" value="${form.date}" onchange="updateForm('date', this.value)">
+
+        <label class="modal-label">針の種類</label>
+        <select class="modal-input" onchange="updateForm('needleType', this.value)">
+          ${NEEDLE_TYPES.map(t => `<option ${form.needleType === t ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+
+        <label class="modal-label">交換理由</label>
+        <select class="modal-input" onchange="updateForm('reason', this.value)">
+          ${REASONS.map(r => `<option ${form.reason === r ? "selected" : ""}>${r}</option>`).join("")}
+        </select>
+
+        <label class="modal-label">メモ（任意）</label>
+        <input class="modal-input" type="text" placeholder="例：糸切れが多発したため" value="${form.note.replace(/"/g, '&quot;')}" oninput="updateForm('note', this.value)">
+
+        <div class="modal-btns">
+          <button class="btn-cancel" onclick="state.modal=null; render()">キャンセル</button>
+          <button class="btn-save" onclick="saveRecord()">記録する</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // History modal
+  if (historyModal) {
+    html += `<div class="overlay" onclick="closeHistory(event)">
+      <div class="modal history-modal" onclick="event.stopPropagation()">
+        <div class="history-modal-header">
+          <h2 class="history-modal-title">${historyModal.head}頭目の履歴</h2>
+          <button class="history-close" onclick="state.historyModal=null; render()">✕</button>
+        </div>`;
+    let hasAny = false;
+    for (let n = 1; n <= NUM_NEEDLES; n++) {
+      const h = state.data[historyModal.head][n].history || [];
+      if (h.length === 0) continue;
+      hasAny = true;
+      html += `<div style="margin-bottom:16px">
+        <div class="history-needle-label">針 ${n}</div>`;
+      h.forEach(r => {
+        html += `<div class="history-row">
+          <span>${r.date} · ${r.needleType}</span>
+          <span>${r.reason}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    if (!hasAny) html += `<div style="color:#aaa;font-size:13px">まだ記録がありません</div>`;
+    html += `</div></div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById("app").innerHTML = html;
+}
+
+function setView(v) { state.view = v; render(); }
+function selectHead(h) { state.selectedHead = h; render(); }
+
+function openModal(head, needle) {
+  const current = state.data[head][needle];
+  state.form = { date: todayStr(), needleType: current.needleType || NEEDLE_TYPES[0], reason: REASONS[0], note: "" };
+  state.modal = { head, needle };
+  render();
+}
+
+function closeModal(e) { state.modal = null; render(); }
+
+function updateForm(key, value) {
+  state.form[key] = value;
+}
+
+function saveRecord() {
+  const { head, needle } = state.modal;
+  const f = state.form;
+  const entry = state.data[head][needle];
+  entry.lastDate = f.date;
+  entry.needleType = f.needleType;
+  entry.history = [{ date: f.date, needleType: f.needleType, reason: f.reason, note: f.note, id: Date.now() }, ...(entry.history || [])];
+  saveData();
+  state.modal = null;
+  render();
+}
+
+function openHistory(head) {
+  state.historyModal = { head };
+  render();
+}
+
+function closeHistory(e) { state.historyModal = null; render(); }
+
+function goToNeedle(head, needle) {
+  state.selectedHead = head;
+  state.view = "grid";
+  state.form = { date: todayStr(), needleType: state.data[head][needle].needleType || NEEDLE_TYPES[0], reason: REASONS[0], note: "" };
+  state.modal = { head, needle };
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
